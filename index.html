@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Crons LEO - Monitoring</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,'Segoe UI',sans-serif;background:#0f172a;color:#e2e8f0;padding:20px}
+h1{font-size:1.5rem;margin-bottom:4px;color:#f1f5f9}
+h2{font-size:1rem;color:#94a3b8;margin-bottom:12px;font-weight:500}
+.header{display:flex;justify-content:space-between;margin-bottom:20px;align-items:center}
+.header small{color:#64748b}
+.nav-bar{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap}
+.nav-link{background:#1e293b;border:1px solid #334155;border-radius:8px;padding:8px 14px;text-decoration:none;color:#cbd5e1;font-size:12px;font-weight:600;transition:.15s}
+.nav-link:hover{border-color:#a78bfa;background:#2e1065;color:#c4b5fd;transform:translateY(-1px)}
+.nav-link.active{background:#2e1065;border-color:#a78bfa}
+.stats{display:flex;gap:12px;margin-bottom:20px}
+.stat{background:#1e293b;padding:12px 20px;border-radius:10px;text-align:center;flex:1}
+.stat .num{font-size:1.8rem;font-weight:700}
+.stat .label{font-size:.75rem;color:#94a3b8;text-transform:uppercase}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px;margin-bottom:24px}
+.card{background:#1e293b;border-radius:12px;padding:16px;border-left:4px solid #334155}
+.card.ok{border-left-color:#22c55e}
+.card.error{border-left-color:#ef4444}
+.card.pending{border-left-color:#f59e0b}
+.card.paused{border-left-color:#64748b;opacity:.6}
+.card-header{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.card-icon{font-size:1.5rem}
+.card-title strong{font-size:1rem}
+.card-title small{display:block;font-size:.7rem;color:#64748b}
+.info{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:.8rem;color:#94a3b8}
+.info span:nth-child(even){color:#e2e8f0;text-align:right;font-family:monospace}
+.history{margin-top:12px;padding-top:10px;border-top:1px solid #334155}
+.history span{font-size:.75rem;color:#94a3b8;display:block;margin-bottom:6px}
+.dots{display:flex;gap:4px;flex-wrap:wrap}
+.dot{width:14px;height:14px;border-radius:50%}
+.dot.ok{background:#22c55e}
+.dot.err{background:#ef4444}
+.na{color:#475569;font-size:.8rem}
+.hist-section{background:#1e293b;border-radius:12px;padding:20px;margin-bottom:20px;overflow-x:auto}
+.hist-table{width:100%;border-collapse:collapse;font-size:.8rem}
+.hist-table th{text-align:left;padding:6px 10px;color:#64748b;font-weight:500;border-bottom:1px solid #334155}
+.hist-table td{padding:8px 10px;border-bottom:1px solid #1e293b}
+.hist-table td:first-child{font-weight:600;white-space:nowrap}
+.ok-cell{color:#22c55e}
+.err-cell{color:#ef4444}
+.warn-cell{color:#f59e0b}
+.footer{text-align:center;font-size:.7rem;color:#475569;padding-top:16px;border-top:1px solid #1e293b}
+.heal-section{background:#1e293b;border-radius:12px;padding:20px;margin-bottom:20px}
+.heal-summary{display:flex;gap:12px;margin-bottom:14px}
+.heal-stat{background:#0f172a;padding:10px 18px;border-radius:8px;text-align:center;flex:1}
+.heal-stat .num{font-size:1.4rem;font-weight:700}
+.heal-stat .label{font-size:.7rem;color:#94a3b8;text-transform:uppercase}
+.heal-entries{font-size:.8rem;max-height:200px;overflow-y:auto}
+.heal-entry{display:flex;gap:10px;padding:6px 8px;border-radius:6px;margin-bottom:4px;align-items:flex-start}
+.heal-entry.fix{background:#0a2e0a;border-left:3px solid #22c55e}
+.heal-entry.unresolved{background:#2e0a0a;border-left:3px solid #ef4444}
+.heal-date{color:#64748b;white-space:nowrap;font-family:monospace;font-size:.7rem;min-width:42px}
+.heal-desc{color:#cbd5e1;line-height:1.3}
+.heal-empty{color:#475569;font-size:.8rem;text-align:center;padding:12px}
+.issues-section{background:#1e293b;border-radius:12px;padding:20px;margin-bottom:20px}
+.issue-item{display:flex;gap:10px;padding:8px 10px;border-radius:6px;margin-bottom:4px;align-items:center;font-size:.8rem}
+.issue-item:hover{background:#0f172a}
+.issue-num{color:#64748b;font-family:monospace;font-size:.7rem;min-width:42px}
+.issue-title{color:#cbd5e1;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.issue-title a{color:#cbd5e1;text-decoration:none}
+.issue-title a:hover{color:#a78bfa}
+.issue-labels{display:flex;gap:4px;flex-wrap:wrap;min-width:120px;justify-content:flex-end}
+.issue-label{font-size:.65rem;padding:2px 8px;border-radius:10px;white-space:nowrap}
+.issue-label.todo{background:#1e293b;color:#f59e0b;border:1px solid #f59e0b}
+.issue-label.en-cours{background:#1e293b;color:#3b82f6;border:1px solid #3b82f6}
+.issue-label.fait{background:#1e293b;color:#22c55e;border:1px solid #22c55e}
+.issue-label.bloque{background:#1e293b;color:#ef4444;border:1px solid #ef4444}
+.issue-label.auto-heal{background:#0a2e0a;color:#22c55e;border:1px solid #22c55e}
+.issue-label.bug{background:#2e0a0a;color:#ef4444;border:1px solid #ef4444}
+</style>
+</head>
+<body>
+<div class="header">
+    <div><h1>🔄 Crons LEO</h1><small>Mise à jour : 2026-06-30 15:30</small></div>
+</div>
+<div class="nav-bar">
+  <a href="https://christophedanhier-hash.github.io/leo-global-dashboard/" class="nav-link">🌍 Global</a>
+  <a href="https://christophedanhier-hash.github.io/bavi-leo-dashboard/" class="nav-link">🏛️ BAVI</a>
+  <a href="https://christophedanhier-hash.github.io/dashboard-leo/" class="nav-link">📊 KPI</a>
+  <a href="https://christophedanhier-hash.github.io/leo-metrics/" class="nav-link">💻 Machines</a>
+  <a href="https://christophedanhier-hash.github.io/crons-dashboard/" class="nav-link active">⏱️ Crons</a>
+  <a href="https://christophedanhier-hash.github.io/github-dashboard/" class="nav-link">🐙 GitHub</a>
+  <a href="https://christophedanhier-hash.github.io/dashboard-n8n/" class="nav-link">🔧 n8n</a>
+</div>
+<div class="stats">
+    <div class="stat"><div class="num" style="color:#22c55e">0</div><div class="label">OK</div></div>
+    <div class="stat"><div class="num" style="color:#ef4444">2</div><div class="label">Erreur</div></div>
+    <div class="stat"><div class="num" style="color:#f59e0b">8</div><div class="label">En attente</div></div>
+    <div class="stat"><div class="num">10</div><div class="label">Total crons</div></div>
+</div>
+<div class="heal-section">
+    <h2>🩺 Auto-Heal · Aujourd'hui : 8 diagnostics</h2>
+    <div class="heal-summary">
+        <div class="heal-stat"><div class="num" style="color:#22c55e">1</div><div class="label">Corrections 7j</div></div>
+        <div class="heal-stat"><div class="num" style="color:#ef4444">0</div><div class="label">Non résolus 7j</div></div>
+    </div>
+    <div class="heal-entries">
+        <div class="heal-entry fix"><span class="heal-date">30/06</span><span class="heal-desc">🔧 </span></div>
+    </div>
+</div>
+<div class="issues-section">
+    <h2>🐙 Suivi · Issues (0)</h2>
+    <div class="heal-empty">✅ Aucune issue ouverte</div>
+</div>
+<div class="grid">
+    <div class="card pending">
+        <div class="card-header">
+            <span class="card-icon">⏳</span>
+            <div class="card-title">
+                <strong>LEO Full Backup quotidien (complet)</strong>
+                <small>🧠 LLM</small>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="info">
+                <span>🕒 Planifié</span><span>0 4 * * *</span>
+                <span>📤 Dernier run</span><span>—</span>
+                <span>📅 Prochain run</span><span>2026-07-01 04:00:00</span>
+            </div>
+            <div class="history">
+                <span>📜 Historique (0 runs)</span>
+                <div class="dots"><span class='na'>—</span></div>
+            </div>
+        </div>
+    </div>
+    <div class="card pending">
+        <div class="card-header">
+            <span class="card-icon">⏳</span>
+            <div class="card-title">
+                <strong>📊 Budget Check quotidien</strong>
+                <small>🧠 LLM</small>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="info">
+                <span>🕒 Planifié</span><span>0 8,20 * * *</span>
+                <span>📤 Dernier run</span><span>—</span>
+                <span>📅 Prochain run</span><span>2026-06-30 20:00:00</span>
+            </div>
+            <div class="history">
+                <span>📜 Historique (0 runs)</span>
+                <div class="dots"><span class='na'>—</span></div>
+            </div>
+        </div>
+    </div>
+    <div class="card pending">
+        <div class="card-header">
+            <span class="card-icon">⏳</span>
+            <div class="card-title">
+                <strong>🔄 Hermes Update Check</strong>
+                <small>🧠 LLM</small>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="info">
+                <span>🕒 Planifié</span><span>0 9 * * *</span>
+                <span>📤 Dernier run</span><span>—</span>
+                <span>📅 Prochain run</span><span>2026-07-01 09:00:00</span>
+            </div>
+            <div class="history">
+                <span>📜 Historique (0 runs)</span>
+                <div class="dots"><span class='na'>—</span></div>
+            </div>
+        </div>
+    </div>
+    <div class="card pending">
+        <div class="card-header">
+            <span class="card-icon">⏳</span>
+            <div class="card-title">
+                <strong>🔍 Veille IA quotidienne</strong>
+                <small>🧠 LLM</small>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="info">
+                <span>🕒 Planifié</span><span>Quotidien (07:00)</span>
+                <span>📤 Dernier run</span><span>—</span>
+                <span>📅 Prochain run</span><span>2026-07-01 07:00:00</span>
+            </div>
+            <div class="history">
+                <span>📜 Historique (0 runs)</span>
+                <div class="dots"><span class='na'>—</span></div>
+            </div>
+        </div>
+    </div>
+    <div class="card pending">
+        <div class="card-header">
+            <span class="card-icon">⏳</span>
+            <div class="card-title">
+                <strong>🧹 Vérification infra hebdo</strong>
+                <small>🧠 LLM</small>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="info">
+                <span>🕒 Planifié</span><span>Hebdo (lundi 08:00)</span>
+                <span>📤 Dernier run</span><span>—</span>
+                <span>📅 Prochain run</span><span>2026-07-06 08:00:00</span>
+            </div>
+            <div class="history">
+                <span>📜 Historique (0 runs)</span>
+                <div class="dots"><span class='na'>—</span></div>
+            </div>
+        </div>
+    </div>
+    <div class="card pending">
+        <div class="card-header">
+            <span class="card-icon">⏳</span>
+            <div class="card-title">
+                <strong>🔄 Déploiement auto tofdan.be</strong>
+                <small>🧠 LLM</small>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="info">
+                <span>🕒 Planifié</span><span>0 * * * *</span>
+                <span>📤 Dernier run</span><span>—</span>
+                <span>📅 Prochain run</span><span>2026-06-30 18:00:00</span>
+            </div>
+            <div class="history">
+                <span>📜 Historique (0 runs)</span>
+                <div class="dots"><span class='na'>—</span></div>
+            </div>
+        </div>
+    </div>
+    <div class="card pending">
+        <div class="card-header">
+            <span class="card-icon">⏳</span>
+            <div class="card-title">
+                <strong>📊 Dashboards (10-en-1)</strong>
+                <small>🔧 Script</small>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="info">
+                <span>🕒 Planifié</span><span>0 * * * *</span>
+                <span>📤 Dernier run</span><span>—</span>
+                <span>📅 Prochain run</span><span>2026-06-30 18:00:00</span>
+            </div>
+            <div class="history">
+                <span>📜 Historique (0 runs)</span>
+                <div class="dots"><span class='na'>—</span></div>
+            </div>
+        </div>
+    </div>
+    <div class="card error">
+        <div class="card-header">
+            <span class="card-icon">❌</span>
+            <div class="card-title">
+                <strong>🛡️ Watchdogs</strong>
+                <small>🔧 Script</small>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="info">
+                <span>🕒 Planifié</span><span>*/5 * * * *</span>
+                <span>📤 Dernier run</span><span>2026-06-30 17:30:35</span>
+                <span>📅 Prochain run</span><span>2026-06-30 17:35:00</span>
+            </div>
+            <div class="history">
+                <span>📜 Historique (1 runs)</span>
+                <div class="dots"><span class='dot ok'></span></div>
+            </div>
+        </div>
+    </div>
+    <div class="card error">
+        <div class="card-header">
+            <span class="card-icon">❌</span>
+            <div class="card-title">
+                <strong>💾 Auto-commit repos</strong>
+                <small>🔧 Script</small>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="info">
+                <span>🕒 Planifié</span><span>*/15 * * * *</span>
+                <span>📤 Dernier run</span><span>2026-06-30 17:30:35</span>
+                <span>📅 Prochain run</span><span>2026-06-30 17:45:00</span>
+            </div>
+            <div class="history">
+                <span>📜 Historique (1 runs)</span>
+                <div class="dots"><span class='dot ok'></span></div>
+            </div>
+        </div>
+    </div>
+    <div class="card pending">
+        <div class="card-header">
+            <span class="card-icon">⏳</span>
+            <div class="card-title">
+                <strong>📤 Publish (index+HTML)</strong>
+                <small>🔧 Script</small>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="info">
+                <span>🕒 Planifié</span><span>15 * * * *</span>
+                <span>📤 Dernier run</span><span>—</span>
+                <span>📅 Prochain run</span><span>2026-06-30 18:15:00</span>
+            </div>
+            <div class="history">
+                <span>📜 Historique (0 runs)</span>
+                <div class="dots"><span class='na'>—</span></div>
+            </div>
+        </div>
+    </div></div>
+<div class="hist-section">
+    <h2>📈 Historique / 7 jours</h2>
+    <table class="hist-table">
+        <thead><tr><th>Cron</th><th>24/06</th><th>25/06</th><th>26/06</th><th>27/06</th><th>28/06</th><th>29/06</th><th>30/06</th></tr></thead>
+        <tbody><tr><td>⏳ LEO Full Backup quotidien (complet)</td><td class='na'>—</td><td class='na'>—</td><td class='na'>—</td><td class='na'>—</td><td class='na'>—</td><td class='na'>—</td><td class='na'>—</td></tr><tr><td>⏳ 📊 Budget Check quotidien</td><td class='na'>—</td><td class='na'>—</td><td class='na'>—</td><td class='na'>—</td><td class='na'>—</td><td class='na'>—</td><td class='na'>—</td></tr><tr><td>⏳ 🔄 Hermes Update Check</td><td class='na'>—</td><td class='na'>—</td><td class='na'>—</td><td class='na'>—</td><td class='na'>—</td><td class='na'>—</td><td class='na'>—</td></tr><tr><td>⏳ 🔍 Veille IA quotidienne</td><td class='na'>—</td><td class='na'>—</td><td class='na'>—</td><td class='na'>—</td><td class='na'>—</td><td class='na'>—</td><td class='na'>—</td></tr><tr><td>⏳ 🧹 Vérification infra hebdo</td><td class='na'>—</td><td class='na'>—</td><td class='na'>—</td><td class='na'>—</td><td class='na'>—</td><td class='na'>—</td><td class='na'>—</td></tr><tr><td>⏳ 🔄 Déploiement auto tofdan.be</td><td class='na'>—</td><td class='na'>—</td><td class='na'>—</td><td class='na'>—</td><td class='na'>—</td><td class='na'>—</td><td class='na'>—</td></tr><tr><td>⏳ 📊 Dashboards (10-en-1)</td><td class='na'>—</td><td class='na'>—</td><td class='na'>—</td><td class='na'>—</td><td class='na'>—</td><td class='na'>—</td><td class='na'>—</td></tr><tr><td>❌ 🛡️ Watchdogs</td><td class='na'>—</td><td class='na'>—</td><td class='na'>—</td><td class='na'>—</td><td class='na'>—</td><td class='na'>—</td><td class='ok-cell'>1✅</td></tr><tr><td>❌ 💾 Auto-commit repos</td><td class='na'>—</td><td class='na'>—</td><td class='na'>—</td><td class='na'>—</td><td class='na'>—</td><td class='na'>—</td><td class='ok-cell'>1✅</td></tr><tr><td>⏳ 📤 Publish (index+HTML)</td><td class='na'>—</td><td class='na'>—</td><td class='na'>—</td><td class='na'>—</td><td class='na'>—</td><td class='na'>—</td><td class='na'>—</td></tr></tbody>
+    </table>
+</div>
+<div class="footer">LEO · 30/06/2026 15:30 · Données toutes les 4h · Zéro JavaScript</div>
+</body>
+</html>
